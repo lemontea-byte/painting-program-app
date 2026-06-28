@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Easy Paint App</title>
 <style>
   :root{
@@ -21,7 +21,7 @@
     color: var(--text);
     line-height:1.4;
     height:100vh;
-    overflow:hidden; /* prevent whole page scroll */
+    overflow:hidden;
   }
   header{
     padding:12px 16px;
@@ -35,27 +35,10 @@
   }
   header h1{ margin:0; font-size:18px; font-weight:700; }
   header .small{ font-size:12px; opacity:.9; }
-  /* layout: left sidebar scrolls, right canvas fixed in view */
-  .container{
-    display:flex;
-    height: calc(100vh - 56px); /* full height minus header and footer */
-  }
-  .sidebar{
-    width:360px;
-    overflow:auto;
-    padding:16px;
-    border-right:1px solid var(--border);
-    background:var(--panel);
-  }
-  .main{
-    flex:1;
-    display:flex;
-    flex-direction:column;
-    gap:16px;
-    padding:16px;
-    overflow:hidden; /* prevent scrolling inside main */
-  }
-  .panel{ background: var(--panel); border:1px solid var(--border); border-radius:12px; padding:14px; box-shadow:0 4px 14px rgba(0,0,0,0.04); }
+  .container{ display:flex; height: calc(100vh - 56px); }
+  .sidebar{ width:380px; overflow:auto; padding:16px; border-right:1px solid var(--border); background:var(--panel); }
+  .main{ flex:1; display:flex; flex-direction:column; gap:16px; padding:16px; overflow:hidden; }
+  .panel{ background: var(--panel); border:1px solid var(--border); border-radius:12px; padding:12px; box-shadow:0 4px 14px rgba(0,0,0,0.04); }
   .section-title{ font-size:14px; font-weight:700; margin:8px 0 10px; color:var(--sub); }
   .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
   label{ font-size:13px; color:var(--sub); min-width:100px; }
@@ -86,17 +69,31 @@
   .paper-size-inputs{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
   .paper-size-inputs input[type="number"]{ width:90px; }
   .note-small{ font-size:12px; color:var(--sub); margin-left:6px; }
-  /* Make sidebar scroll visible */
+
+  /* Color selector grid */
+  .color-grid{ display:grid; grid-template-columns: repeat(8, 1fr); gap:6px; width:100%; }
+  .color-swatch{ width:100%; padding-bottom:80%; border-radius:6px; cursor:pointer; border:2px solid transparent; box-shadow: inset 0 -10px rgba(0,0,0,0.06); }
+  .color-swatch.selected{ border-color:var(--accent); outline: 2px solid rgba(37,99,235,0.12); }
+
+  /* Tone matrix (whitish-blackish) square */
+  .tone-matrix{ width:100%; height:160px; display:grid; grid-template-columns: repeat(20, 1fr); grid-auto-rows: 8px; gap:0; border-radius:6px; overflow:hidden; border:1px solid var(--border); cursor:pointer; }
+  .tone-cell{ width:100%; height:100%; }
+
+  /* Brush type list */
+  .brush-list{ display:flex; gap:8px; flex-wrap:wrap; }
+  .brush-item{ padding:8px 10px; border-radius:10px; background:#fff; border:1px solid var(--border); cursor:pointer; }
+  .brush-item.active{ border-color:var(--accent); color:var(--accent); }
+
+  /* scrollbar */
   .sidebar::-webkit-scrollbar{ width:10px; }
   .sidebar::-webkit-scrollbar-thumb{ background:rgba(0,0,0,0.08); border-radius:10px; }
-  /* Hide default page touch scroll on mobile for canvas area */
   .canvas-area, .canvas-wrap { -webkit-overflow-scrolling: touch; touch-action: none; }
 </style>
 </head>
 <body>
 <header>
   <h1>Easy Paint App</h1>
-  <div class="small">Simple draw tool — かんたんお絵かき</div>
+  <div class="small">Choose more colors and brushes — いろやブラシを増やせます</div>
 </header>
 
 <div class="container">
@@ -163,9 +160,27 @@
     </div>
 
     <div class="panel" style="margin-top:12px;">
-      <div class="section-title">Color and size</div>
+      <div class="section-title">Color (choose)</div>
+
+      <!-- Color grid: many colors -->
+      <div class="row" style="width:100%;">
+        <label>Palette</label>
+        <div style="flex:1">
+          <div class="color-grid" id="colorGrid"></div>
+        </div>
+      </div>
+
+      <div class="section-title">Tone (make whitish or blackish)</div>
+      <div class="row" style="width:100%;">
+        <label>Tone</label>
+        <div style="flex:1">
+          <div class="tone-matrix" id="toneMatrix" title="Click to change tone"></div>
+          <div class="small-note" style="margin-top:6px;">Click a square to make color lighter (top) or darker (bottom).</div>
+        </div>
+      </div>
+
       <div class="row">
-        <label for="colorPick">Color</label>
+        <label for="colorPick">Custom</label>
         <input id="colorPick" type="color" value="#1f2937" />
         <div class="chip-group" id="swatches">
           <div class="chip active" data-color="#1f2937"><span class="color-sample" style="background:#1f2937"></span></div>
@@ -176,6 +191,7 @@
           <div class="chip" data-color="#8b5cf6"><span class="color-sample" style="background:#8b5cf6"></span></div>
         </div>
       </div>
+
       <div class="row">
         <label for="sizeRange">Size</label>
         <input id="sizeRange" type="range" min="1" max="60" value="10" />
@@ -187,15 +203,19 @@
 
       <div class="section-title">Brush type</div>
       <div class="row">
-        <label for="brushType">Tip</label>
-        <select id="brushType">
-          <option value="round" selected>Round</option>
-          <option value="square">Square</option>
-          <option value="calligraphy">Calligraphy (flat)</option>
-          <option value="soft">Soft</option>
-          <option value="texture">Texture</option>
-        </select>
+        <label>Tip</label>
+        <div class="brush-list" id="brushList">
+          <div class="brush-item active" data-tip="round">Round</div>
+          <div class="brush-item" data-tip="square">Square</div>
+          <div class="brush-item" data-tip="calligraphy">Calligraphy</div>
+          <div class="brush-item" data-tip="soft">Soft</div>
+          <div class="brush-item" data-tip="texture">Texture</div>
+          <div class="brush-item" data-tip="glass">Glass pen</div>
+          <div class="brush-item" data-tip="crayon">Crayon</div>
+          <div class="brush-item" data-tip="pencil2">Pencil (hard)</div>
+        </div>
       </div>
+
       <div class="row">
         <label for="opacityRange">Opacity</label>
         <input id="opacityRange" type="range" min="0.05" max="1" step="0.05" value="1"/>
@@ -214,7 +234,7 @@
     </div>
 
     <div class="canvas-area panel" id="canvasArea">
-      <div class="canvas-wrap" id="canvasWrap" aria-hidden="false">
+      <div class="canvas-wrap" id="canvasWrap">
         <canvas id="canvas" width="1400" height="900" aria-label="Drawing canvas"></canvas>
         <div class="paper" id="paperTexture"></div>
       </div>
@@ -227,26 +247,26 @@
 </div>
 
 <script>
-  // Keep only the left sidebar scrollable.
-  // The canvas area stays fixed in the viewport so the cursor position calculation is stable.
-  // All code in one file.
+  // New features:
+  // - Many colors in a grid.
+  // - Tone matrix: adjust selected color to lighter or darker.
+  // - New brush types: glass pen, crayon, pencil (hard).
+  // - Keep single HTML file with all JS.
 
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   const wrap = document.getElementById('canvasWrap');
   const paperLayer = document.getElementById('paperTexture');
-  const sidebar = document.getElementById('sidebar');
 
-  // State
   const state = {
     tool: 'brush',
     color: '#1f2937',
+    baseColor: '#1f2937',
     size: 10,
     opacity: 1,
     brushTip: 'round',
     isDrawing: false,
-    last: null,
-    start: null,
+    points: [],
     paperColor: '#ffffff',
     paperType: 'canvas',
     history: [],
@@ -254,29 +274,20 @@
     isShift: false,
   };
 
-  // Presets (approx px using 96 DPI)
   const presets = {
     a4: {w: Math.round(210/25.4*96), h: Math.round(297/25.4*96)},
     b4: {w: Math.round(257/25.4*96), h: Math.round(364/25.4*96)},
     letter: {w: Math.round(8.5*96), h: Math.round(11*96)}
   };
 
-  // Set initial canvas pixel size and CSS size to fit main area.
   function setCanvasSizePixels(w, h){
-    // create temp to copy current drawing scaled
     const tmp = document.createElement('canvas');
     tmp.width = w; tmp.height = h;
     const tctx = tmp.getContext('2d');
-    // Fill with paper color
-    tctx.fillStyle = state.paperColor;
-    tctx.fillRect(0,0,w,h);
-    // draw existing content scaled
+    tctx.fillStyle = state.paperColor; tctx.fillRect(0,0,w,h);
     tctx.drawImage(canvas, 0, 0, w, h);
 
-    // set actual canvas pixel size
-    canvas.width = w;
-    canvas.height = h;
-    // set CSS size to fit available main area width while keeping aspect
+    canvas.width = w; canvas.height = h;
     const mainArea = document.getElementById('canvasArea');
     const maxWidth = Math.max(300, mainArea.clientWidth - 40);
     const cssWidth = Math.min(w, maxWidth);
@@ -284,20 +295,15 @@
     canvas.style.width = cssWidth + 'px';
     canvas.style.height = cssHeight + 'px';
 
-    // draw copied pixels into new canvas
     ctx.clearRect(0,0,canvas.width,canvas.height);
     ctx.drawImage(tmp, 0, 0);
-
-    // reset history
     state.history = [];
     applyPaperColor();
     updatePaperOverlay();
   }
 
-  // Initialize with A4
   setCanvasSizePixels(Math.max(800, presets.a4.w), Math.max(600, presets.a4.h));
 
-  // Helpers: history, undo
   function pushHistory(){
     try{
       const img = ctx.getImageData(0,0,canvas.width,canvas.height);
@@ -309,7 +315,6 @@
   }
   function undo(){ if (!state.history.length) return; const img = state.history.pop(); ctx.putImageData(img,0,0); }
 
-  // Paper functions
   function applyPaperColor(){
     ctx.save();
     ctx.globalCompositeOperation = 'destination-over';
@@ -355,14 +360,119 @@
     }
   }
 
-  // UI elements
+  // Build color grid
+  const colorGrid = document.getElementById('colorGrid');
+  const baseColors = [
+    "#000000","#111827","#374151","#4b5563","#6b7280","#9ca3af","#d1d5db","#ffffff",
+    "#7f1d1d","#b91c1c","#ef4444","#f97316","#f59e0b","#facc15","#84cc16","#10b981",
+    "#047857","#065f46","#0ea5e9","#3b82f6","#6366f1","#7c3aed","#a78bfa","#ec4899",
+    "#9a3412","#ea580c","#f97316","#f59e0b","#fbbf24","#eab308","#65a30d","#16a34a",
+    "#0ea5a4","#0284c7","#2563eb","#1e40af","#312e81","#7c2d12","#fb7185","#db2777"
+  ];
+  // create swatches
+  function buildColorGrid(){
+    colorGrid.innerHTML = '';
+    baseColors.forEach(c=>{
+      const el = document.createElement('div');
+      el.className = 'color-swatch';
+      el.style.background = c;
+      el.dataset.color = c;
+      el.addEventListener('click', ()=> {
+        selectBaseColor(c);
+      });
+      colorGrid.appendChild(el);
+    });
+  }
+  buildColorGrid();
+
+  // Tone matrix: create gradient squares from white to base color to black
+  const toneMatrix = document.getElementById('toneMatrix');
+  function buildToneMatrix(){
+    toneMatrix.innerHTML = '';
+    // 20 columns, 20 rows approx -> 400 cells
+    const cols = 20;
+    const rows = 20;
+    toneMatrix.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+    for (let y=0;y<rows;y++){
+      for (let x=0;x<cols;x++){
+        const cell = document.createElement('div');
+        cell.className = 'tone-cell';
+        cell.dataset.x = x; cell.dataset.y = y;
+        toneMatrix.appendChild(cell);
+      }
+    }
+    updateToneMatrix(); // initial fill
+  }
+
+  function updateToneMatrix(){
+    // For current base color, fill cells from top (whitest) to bottom (blackest).
+    const cols = 20;
+    const rows = 20;
+    const cells = toneMatrix.querySelectorAll('.tone-cell');
+    const base = hexToRgb(state.baseColor);
+    for (let y=0;y<rows;y++){
+      for (let x=0;x<cols;x++){
+        const idx = y*cols + x;
+        // mix white (top) to base (middle) to black (bottom)
+        const t = y/(rows-1);
+        let r,g,b;
+        if (t < 0.5){
+          // mix white -> base
+          const tt = t / 0.5;
+          r = Math.round(255*(1-tt) + base.r*tt);
+          g = Math.round(255*(1-tt) + base.g*tt);
+          b = Math.round(255*(1-tt) + base.b*tt);
+        } else {
+          // mix base -> black
+          const tt = (t-0.5)/0.5;
+          r = Math.round(base.r*(1-tt) + 0*tt);
+          g = Math.round(base.g*(1-tt) + 0*tt);
+          b = Math.round(base.b*(1-tt) + 0*tt);
+        }
+        const cell = cells[idx];
+        cell.style.background = `rgb(${r},${g},${b})`;
+        cell.dataset.color = rgbToHex(r,g,b);
+      }
+    }
+  }
+
+  // select base color from grid or swatch
+  function selectBaseColor(hex){
+    state.baseColor = hex;
+    state.color = hex;
+    document.getElementById('colorPick').value = hex;
+    // mark selection in grid
+    colorGrid.querySelectorAll('.color-swatch').forEach(el=> el.classList.toggle('selected', el.dataset.color === hex));
+    // update tone matrix
+    updateToneMatrix();
+    updateCursor();
+    // Also update small swatch selection
+    document.querySelectorAll('#swatches .chip').forEach(c=>c.classList.remove('active'));
+  }
+
+  buildToneMatrix();
+
+  // Tone matrix click: pick tone color
+  toneMatrix.addEventListener('click', (e)=>{
+    const cell = e.target.closest('.tone-cell');
+    if (!cell) return;
+    const col = cell.dataset.color;
+    if (!col) return;
+    state.color = col;
+    document.getElementById('colorPick').value = col;
+    // clear grid selection highlight
+    colorGrid.querySelectorAll('.color-swatch').forEach(el=> el.classList.remove('selected'));
+    document.querySelectorAll('#swatches .chip').forEach(c=>c.classList.remove('active'));
+    updateCursor();
+  });
+
+  // UI bindings
   const tools = document.querySelectorAll('.btn[data-tool]');
   tools.forEach(b=>{
     b.addEventListener('click', ()=>{
       tools.forEach(x=>x.classList.remove('active'));
       b.classList.add('active');
       state.tool = b.dataset.tool;
-      updateCursor();
     });
   });
 
@@ -382,19 +492,13 @@
     const a = document.createElement('a'); a.href = url; a.download = 'my-drawing.png'; a.click();
   });
 
-  // Color and size
+  // Color inputs
   const colorPick = document.getElementById('colorPick');
   const swatches = document.getElementById('swatches');
-  const sizeRange = document.getElementById('sizeRange');
-  const opacityRange = document.getElementById('opacityRange');
-  const sizeLabel = document.getElementById('sizeLabel');
-  const dotPreview = document.getElementById('dotPreview');
-  const opacityLabel = document.getElementById('opacityLabel');
-
   colorPick.addEventListener('input', e=>{
     state.color = e.target.value;
-    swatches.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
-    dotPreview.style.background = state.color;
+    state.baseColor = e.target.value;
+    updateToneMatrix();
     updateCursor();
   });
   swatches.querySelectorAll('.chip').forEach(c=>{
@@ -402,9 +506,16 @@
       swatches.querySelectorAll('.chip').forEach(x=>x.classList.remove('active'));
       c.classList.add('active');
       const col = c.dataset.color;
-      if (col){ state.color = col; colorPick.value = col; dotPreview.style.background = col; updateCursor(); }
+      if (col){ state.color = col; state.baseColor = col; colorPick.value = col; updateToneMatrix(); updateCursor(); }
     });
   });
+
+  // Size and opacity
+  const sizeRange = document.getElementById('sizeRange');
+  const opacityRange = document.getElementById('opacityRange');
+  const sizeLabel = document.getElementById('sizeLabel');
+  const dotPreview = document.getElementById('dotPreview');
+  const opacityLabel = document.getElementById('opacityLabel');
 
   sizeRange.addEventListener('input', e=>{
     state.size = parseInt(e.target.value,10);
@@ -413,14 +524,24 @@
     dotPreview.style.height = state.size + 'px';
     updateCursor();
   });
-
   opacityRange.addEventListener('input', e=>{
     state.opacity = parseFloat(e.target.value);
     opacityLabel.textContent = Math.round(state.opacity*100) + '%';
     updateCursor();
   });
 
-  // Paper colors
+  // Brush list (add new types)
+  const brushList = document.getElementById('brushList');
+  brushList.querySelectorAll('.brush-item').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      brushList.querySelectorAll('.brush-item').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      state.brushTip = b.dataset.tip;
+      updateCursor();
+    });
+  });
+
+  // Paper color and paper type (same as before)
   const paperColors = document.getElementById('paperColors');
   paperColors.querySelectorAll('.chip').forEach(ch=>{
     ch.addEventListener('click', ()=>{
@@ -432,7 +553,6 @@
     });
   });
 
-  // Paper type
   const paperType = document.getElementById('paperType');
   paperType.querySelectorAll('.chip').forEach(ch=>{
     ch.addEventListener('click', ()=>{
@@ -442,14 +562,7 @@
     });
   });
 
-  // Brush type
-  const brushType = document.getElementById('brushType');
-  brushType.addEventListener('change', e=>{
-    state.brushTip = e.target.value;
-    updateCursor();
-  });
-
-  // Paper size select and custom
+  // Paper size controls
   const paperSizeSelect = document.getElementById('paperSizeSelect');
   const customRow = document.getElementById('customSizeRow');
   const customW = document.getElementById('customWidth');
@@ -473,7 +586,7 @@
     setCanvasSizePixels(w,h);
   });
 
-  // Drawing logic
+  // Drawing logic: same smoothing approach, extended brush behaviors for glass, crayon, pencil (hard)
   function setStrokeStyle(){
     ctx.globalAlpha = state.opacity;
     ctx.lineWidth = state.size;
@@ -481,20 +594,20 @@
     ctx.lineJoin = 'round';
     ctx.strokeStyle = state.tool === 'eraser' ? state.paperColor : state.color;
     ctx.fillStyle = ctx.strokeStyle;
-    if (state.brushTip === 'soft' || state.tool === 'airbrush'){
+    if (state.brushTip === 'soft' || state.tool === 'airbrush' || state.brushTip==='glass'){
       ctx.shadowColor = ctx.strokeStyle;
-      ctx.shadowBlur = state.size * 0.6;
+      ctx.shadowBlur = state.size * (state.brushTip==='glass'?0.8:0.6);
     } else {
       ctx.shadowBlur = 0;
     }
   }
 
-  // Cursor element follows pointer. We will position cursor using client coordinates.
+  // Cursor element
   let cursorEl = null;
   function createCursor(){
     if (cursorEl){ cursorEl.remove(); cursorEl = null; }
     cursorEl = document.createElement('div');
-    cursorEl.style.position = 'fixed'; // fixed to viewport so scrolling sidebar does not move it
+    cursorEl.style.position = 'fixed';
     cursorEl.style.pointerEvents = 'none';
     cursorEl.style.zIndex = 9999;
     cursorEl.style.width = state.size + 'px';
@@ -502,32 +615,28 @@
     cursorEl.style.borderRadius = state.brushTip === 'square' ? '3px' : '50%';
     cursorEl.style.border = '2px solid rgba(0,0,0,0.25)';
     cursorEl.style.background = state.tool === 'eraser' ? state.paperColor : state.color;
-    cursorEl.style.opacity = Math.max(0.35, state.opacity*0.9);
+    cursorEl.style.opacity = Math.max(0.25, state.opacity*0.9);
     cursorEl.style.transform = 'translate(-50%, -50%)';
-    if (state.brushTip === 'soft') cursorEl.style.filter = 'blur(2px)';
+    if (state.brushTip === 'soft' || state.brushTip==='glass') cursorEl.style.filter = 'blur(2px)';
     document.body.appendChild(cursorEl);
   }
-
   function updateCursor(){
     if (!cursorEl) createCursor();
     cursorEl.style.width = state.size + 'px';
     cursorEl.style.height = state.size + 'px';
     cursorEl.style.borderRadius = state.brushTip === 'square' ? '3px' : '50%';
     cursorEl.style.background = state.tool === 'eraser' ? state.paperColor : state.color;
-    cursorEl.style.opacity = Math.max(0.35, state.opacity*0.9);
-    cursorEl.style.filter = state.brushTip === 'soft' ? 'blur(2px)' : 'none';
+    cursorEl.style.opacity = Math.max(0.25, state.opacity*0.9);
+    cursorEl.style.filter = (state.brushTip === 'soft' || state.brushTip==='glass') ? 'blur(2px)' : 'none';
   }
 
-  // Map client coordinates to canvas pixel coordinates correctly.
   function clientToCanvas(clientX, clientY){
     const rect = canvas.getBoundingClientRect();
-    // rect is in client coordinates and stable when main area does not scroll.
     const x = (clientX - rect.left) * (canvas.width / rect.width);
     const y = (clientY - rect.top) * (canvas.height / rect.height);
     return {x, y};
   }
 
-  // Keep cursor position synced.
   function moveCursor(e){
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -536,31 +645,227 @@
     cursorEl.style.top = clientY + 'px';
   }
 
-  // Drawing helpers
-  function stampAt(p){
+  // Draw smooth path functions (reuse from before) and new brush behaviors
+  function drawSmoothPath(points, preview=false){
+    if (points.length < 2) return;
+    setStrokeStyle();
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length - 1; i++) {
+      const midX = (points[i].x + points[i + 1].x) / 2;
+      const midY = (points[i].y + points[i + 1].y) / 2;
+      ctx.quadraticCurveTo(points[i].x, points[i].y, midX, midY);
+    }
+    const last = points[points.length - 1];
+    ctx.lineTo(last.x, last.y);
+
+    // behavior by brushTip and tool
+    if (state.brushTip === 'square') {
+      ctx.lineCap = 'butt';
+      ctx.stroke();
+      // draw smooth caps
+      drawSquareCaps(points[0], points[points.length-1]);
+    } else if (state.brushTip === 'calligraphy') {
+      ctx.stroke(); // base stroke
+      drawCalligraphyAlong(points);
+    } else if (state.brushTip === 'texture') {
+      ctx.stroke();
+      drawTextureAlong(points);
+    } else if (state.brushTip === 'glass') {
+      // glass pen: semi-transparent thin core and bright highlight - simulate by two strokes
+      // thin core
+      ctx.globalAlpha = state.opacity * 0.65;
+      ctx.lineWidth = Math.max(1, state.size * 0.6);
+      ctx.strokeStyle = state.color;
+      ctx.stroke();
+      // outer soft glow
+      ctx.globalAlpha = state.opacity * 0.25;
+      ctx.lineWidth = state.size * 1.6;
+      ctx.strokeStyle = state.color;
+      ctx.stroke();
+      // highlight
+      ctx.globalAlpha = state.opacity * 0.6;
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length - 1; i++) {
+        const midX = (points[i].x + points[i + 1].x) / 2;
+        const midY = (points[i].y + points[i + 1].y) / 2;
+        ctx.quadraticCurveTo(points[i].x, points[i].y, midX, midY);
+      }
+      ctx.lineWidth = Math.max(1, state.size * 0.18);
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+      ctx.stroke();
+    } else if (state.brushTip === 'crayon') {
+      // crayon: noisy thick stroke, draw many overlapped semi-opaque strokes with jitter
+      ctx.restore();
+      drawCrayonAlong(points);
+      return;
+    } else if (state.brushTip === 'pencil2') {
+      // hard pencil: thin, slightly textured
+      ctx.globalAlpha = state.opacity * 0.9;
+      ctx.lineWidth = Math.max(1, state.size * 0.6);
+      ctx.stroke();
+      // add light texture
+      drawPencilTexture(points);
+    } else {
+      // round or soft
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawSquareCaps(start, end){
+    ctx.save();
+    ctx.fillStyle = state.tool === 'eraser' ? state.paperColor : state.color;
+    const s = state.size;
+    ctx.beginPath();
+    ctx.rect(start.x - s/2, start.y - s/2, s, s);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.rect(end.x - s/2, end.y - s/2, s, s);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function samplePoints(points, step){
+    const samples = [];
+    if (points.length === 0) return samples;
+    for (let i = 0; i < points.length - 1; i++){
+      const a = points[i], b = points[i+1];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist === 0) continue;
+      const nx = dx / dist, ny = dy / dist;
+      let t = 0;
+      while (t <= dist){
+        const x = a.x + nx * t;
+        const y = a.y + ny * t;
+        if (samples.length === 0 || Math.hypot(x - samples[samples.length-1].x, y - samples[samples.length-1].y) >= Math.max(1, step*0.6)){
+          samples.push({x, y});
+        }
+        t += step*0.6;
+      }
+    }
+    samples.push(points[points.length-1]);
+    return samples;
+  }
+
+  function drawCalligraphyAlong(points){
+    ctx.save();
+    const step = Math.max(1, state.size * 0.6);
+    const samples = samplePoints(points, step);
+    ctx.fillStyle = state.tool === 'eraser' ? state.paperColor : state.color;
+    for (let i=0;i<samples.length;i++){
+      const p = samples[i];
+      const next = samples[Math.min(i+1, samples.length-1)];
+      const angle = Math.atan2(next.y - p.y, next.x - p.x) + Math.PI/6;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(angle);
+      ctx.fillRect(-state.size*0.6, -state.size*0.25, state.size*1.2, state.size*0.5);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  function drawTextureAlong(points){
+    ctx.save();
+    const step = Math.max(1, state.size * 0.4);
+    const samples = samplePoints(points, step);
+    ctx.fillStyle = state.tool === 'eraser' ? state.paperColor : state.color;
+    for (let i=0;i<samples.length;i++){
+      const p = samples[i];
+      const count = 4 + Math.floor(Math.random()*6);
+      for (let j=0;j<count;j++){
+        const a = Math.random()*Math.PI*2;
+        const r = Math.random()*state.size*0.6;
+        const x = p.x + Math.cos(a)*r;
+        const y = p.y + Math.sin(a)*r;
+        const rad = Math.max(0.3, state.size*0.14*Math.random()+0.3);
+        ctx.beginPath();
+        ctx.arc(x, y, rad, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawCrayonAlong(points){
+    ctx.save();
+    const step = Math.max(1, state.size * 0.6);
+    const samples = samplePoints(points, step);
+    for (let pass=0; pass<3; pass++){
+      ctx.globalAlpha = (state.opacity*0.6) / (pass+1);
+      ctx.fillStyle = state.tool === 'eraser' ? state.paperColor : state.color;
+      for (let i=0;i<samples.length;i++){
+        const p = samples[i];
+        const jitter = state.size * 0.35 * (0.6 - pass*0.15);
+        const x = p.x + (Math.random()-0.5)*jitter;
+        const y = p.y + (Math.random()-0.5)*jitter;
+        const rad = Math.max(0.6, state.size*0.45*(1 - pass*0.18));
+        ctx.beginPath();
+        ctx.arc(x, y, rad, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawPencilTexture(points){
+    ctx.save();
+    ctx.globalAlpha = state.opacity*0.6;
+    ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+    ctx.lineWidth = Math.max(1, state.size*0.6);
+    const step = Math.max(1, state.size*0.6);
+    const samples = samplePoints(points, step);
+    for (let i=0;i<samples.length-1;i++){
+      const a = samples[i], b = samples[i+1];
+      ctx.beginPath();
+      ctx.moveTo(a.x + (Math.random()-0.5)*1.2, a.y + (Math.random()-0.5)*1.2);
+      ctx.lineTo(b.x + (Math.random()-0.5)*1.2, b.y + (Math.random()-0.5)*1.2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function stampTipOnce(p){
     ctx.save();
     setStrokeStyle();
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.shadowBlur = (state.brushTip === 'soft') ? state.size * 0.6 : 0;
     ctx.fillStyle = state.tool === 'eraser' ? state.paperColor : state.color;
     if (state.brushTip === 'square'){
-      const s = state.size;
-      ctx.fillRect(p.x - s/2, p.y - s/2, state.size, state.size);
+      ctx.fillRect(p.x - state.size/2, p.y - state.size/2, state.size, state.size);
     } else if (state.brushTip === 'calligraphy'){
       ctx.translate(p.x, p.y);
       ctx.rotate(-Math.PI/6);
       ctx.fillRect(-state.size*0.6, -state.size*0.25, state.size*1.2, state.size*0.5);
-    } else if (state.brushTip === 'texture'){
-      for(let i=0;i<8;i++){
+    } else if (state.brushTip === 'texture' || state.brushTip === 'crayon'){
+      for (let i=0;i<8;i++){
         const a = Math.random()*Math.PI*2;
         const r = Math.random()*state.size*0.6;
         const x = Math.cos(a)*r;
         const y = Math.sin(a)*r;
-        const rad = Math.max(0.5, state.size*0.2*Math.random()+0.5);
+        const rad = Math.max(0.4, state.size*0.18*Math.random()+0.3);
         ctx.beginPath();
         ctx.arc(p.x + x, p.y + y, rad, 0, Math.PI*2);
         ctx.fill();
       }
+    } else if (state.brushTip === 'glass'){
+      // small glossy ellipse
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y, state.size*0.6, state.size*0.25, -Math.PI/8, 0, Math.PI*2);
+      ctx.globalAlpha = state.opacity*0.9;
+      ctx.fillStyle = state.color;
+      ctx.fill();
+      // highlight
+      ctx.beginPath();
+      ctx.ellipse(p.x - state.size*0.15, p.y - state.size*0.12, state.size*0.18, state.size*0.06, -Math.PI/8, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.fill();
+    } else if (state.brushTip === 'pencil2'){
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, Math.max(0.5, state.size*0.35), 0, Math.PI*2);
+      ctx.fill();
     } else {
       ctx.beginPath();
       ctx.arc(p.x, p.y, Math.max(0.5, state.size/2), 0, Math.PI*2);
@@ -569,60 +874,17 @@
     ctx.restore();
   }
 
-  function drawSegment(from, to){
-    setStrokeStyle();
-    ctx.save();
-    if (state.brushTip === 'square'){
-      ctx.lineCap = 'butt';
-      ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y); ctx.stroke();
-    } else if (state.brushTip === 'calligraphy'){
-      const angle = Math.atan2(to.y - from.y, to.x - from.x) + Math.PI/6;
-      const step = Math.max(1, state.size*0.6);
-      const length = Math.hypot(to.x-from.x, to.y-from.y);
-      const count = Math.ceil(length/step);
-      for(let i=0;i<count;i++){
-        const t = i/count;
-        const px = from.x + (to.x-from.x)*t;
-        const py = from.y + (to.y-from.y)*t;
-        ctx.save();
-        ctx.translate(px, py);
-        ctx.rotate(angle);
-        ctx.fillStyle = state.tool === 'eraser' ? state.paperColor : state.color;
-        ctx.fillRect(-state.size*0.6, -state.size*0.25, state.size*1.2, state.size*0.5);
-        ctx.restore();
-      }
-    } else if (state.brushTip === 'texture'){
-      const length = Math.hypot(to.x-from.x, to.y-from.y) || 1;
-      const step = Math.max(1, state.size*0.4);
-      const vx = (to.x - from.x)/length;
-      const vy = (to.y - from.y)/length;
-      ctx.globalAlpha = state.opacity;
-      for(let d=0; d<=length; d+=step){
-        const px = from.x + vx*d + (Math.random()-0.5)*state.size*0.2;
-        const py = from.y + vy*d + (Math.random()-0.5)*state.size*0.2;
-        const r = Math.max(0.5, state.size*0.35 + (Math.random()-0.5)*state.size*0.2);
-        ctx.beginPath();
-        ctx.arc(px, py, r, 0, Math.PI*2);
-        ctx.fillStyle = state.tool === 'eraser' ? state.paperColor : state.color;
-        ctx.fill();
-      }
-    } else if (state.tool === 'pencil'){
-      ctx.globalAlpha = state.opacity*0.9;
-      ctx.beginPath();
-      ctx.moveTo(from.x + (Math.random()-0.5)*state.size*0.25, from.y + (Math.random()-0.5)*state.size*0.25);
-      ctx.lineTo(to.x + (Math.random()-0.5)*state.size*0.25, to.y + (Math.random()-0.5)*state.size*0.25);
-      ctx.stroke();
-    } else if (state.tool === 'marker'){
-      ctx.globalAlpha = Math.min(1, state.opacity*0.85);
-      ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y); ctx.stroke();
-      ctx.globalAlpha = Math.min(1, state.opacity*0.4);
-      ctx.beginPath(); ctx.moveTo(from.x, from.y+0.6); ctx.lineTo(to.x, to.y+0.6); ctx.stroke();
-    } else if (state.tool === 'airbrush'){
-      airbrushSpray(to);
-    } else {
-      ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y); ctx.stroke();
+  function drawFreehandFinal(points){
+    if (points.length < 2){
+      if (points.length === 1) stampTipOnce(points[0]);
+      return;
     }
-    ctx.restore();
+    drawSmoothPath(points, false);
+    // Add caps for certain tips
+    if (['square','calligraphy','glass','texture','crayon','pencil2'].includes(state.brushTip)){
+      stampTipOnce(points[0]);
+      stampTipOnce(points[points.length-1]);
+    }
   }
 
   function airbrushSpray(point){
@@ -643,24 +905,28 @@
     ctx.restore();
   }
 
-  // Input handling, using clientToCanvas to avoid desync when sidebar scrolls.
+  // Events and input
   let airbrushInterval = null;
 
   function startDraw(e){
     e.preventDefault();
     pushHistory();
     state.isDrawing = true;
+    state.points = [];
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    state.start = state.last = clientToCanvas(clientX, clientY);
+    const p = clientToCanvas(clientX, clientY);
+    state.points.push(p);
     if (state.tool === 'fill'){
-      floodFill(Math.floor(state.start.x), Math.floor(state.start.y), hexToRgba(state.color, state.opacity));
+      floodFill(Math.floor(p.x), Math.floor(p.y), hexToRgba(state.color, state.opacity));
       state.isDrawing = false;
       return;
     }
-    stampAt(state.start);
     if (state.tool === 'airbrush'){
-      airbrushInterval = setInterval(()=> airbrushSpray(state.last), 35);
+      airbrushSpray(p);
+      airbrushInterval = setInterval(()=> airbrushSpray(state.points[state.points.length-1]), 35);
+    } else {
+      stampTipOnce(p); // stamp only once at start
     }
   }
 
@@ -668,7 +934,7 @@
     if (!state.isDrawing) return;
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    const pos = clientToCanvas(clientX, clientY);
+    const p = clientToCanvas(clientX, clientY);
     state.isShift = e.shiftKey;
     moveCursor(e);
 
@@ -676,7 +942,7 @@
       if (state.history.length){
         ctx.putImageData(state.history[state.history.length-1], 0, 0);
       }
-      drawShape(state.start, pos);
+      drawShape(state.points[0] || p, p);
       return;
     }
 
@@ -684,19 +950,29 @@
       if (state.history.length){
         ctx.putImageData(state.history[state.history.length-1], 0, 0);
       }
-      drawSegment(state.start, pos);
+      drawShape(state.points[0] || p, p);
       return;
     }
 
-    drawSegment(state.last, pos);
-    stampAt(pos); // ensure stamp at segment end so ends match brush form
-    state.last = pos;
+    state.points.push(p);
+    if (state.history.length){
+      ctx.putImageData(state.history[state.history.length-1], 0, 0);
+    }
+    // preview smooth path
+    drawSmoothPath(state.points, true);
   }
 
   function endDraw(e){
     if (!state.isDrawing) return;
     state.isDrawing = false;
     if (airbrushInterval){ clearInterval(airbrushInterval); airbrushInterval = null; }
+    if (state.tool === 'airbrush') return;
+    if (['line','rect','circle'].includes(state.tool)) return;
+    if (state.history.length){
+      ctx.putImageData(state.history[state.history.length-1], 0, 0);
+    }
+    drawFreehandFinal(state.points);
+    state.points = [];
   }
 
   // Shape drawing
@@ -724,7 +1000,7 @@
     ctx.restore();
   }
 
-  // Flood fill
+  // Flood fill (same)
   function floodFill(x, y, fillColor){
     try{
       const img = ctx.getImageData(0,0,canvas.width,canvas.height);
@@ -761,7 +1037,7 @@
       }
       ctx.putImageData(img, 0, 0);
     }catch(e){
-      // ignore large failures
+      // ignore
     }
   }
 
@@ -774,7 +1050,20 @@
     return [r,g,b, Math.floor(alpha*255)];
   }
 
-  // Cursor and input events
+  // Helper color functions
+  function hexToRgb(hex){
+    const h = hex.replace('#','');
+    const bigint = parseInt(h,16);
+    const r = (h.length===3) ? ((bigint>>8)&0xF)*17 : (bigint>>16)&255;
+    const g = (h.length===3) ? ((bigint>>4)&0xF)*17 : (bigint>>8)&255;
+    const b = (h.length===3) ? (bigint&0xF)*17 : (bigint)&255;
+    return {r,g,b};
+  }
+  function rgbToHex(r,g,b){
+    return "#" + [r,g,b].map(v=> ("0"+Math.max(0,Math.min(255,Math.round(v))).toString(16)).slice(-2)).join('');
+  }
+
+  // Cursor and events
   window.addEventListener('mousemove', moveCursor);
   window.addEventListener('touchmove', moveCursor, {passive:false});
   canvas.addEventListener('mousedown', startDraw);
@@ -784,24 +1073,20 @@
   canvas.addEventListener('touchmove', moveDraw, {passive:false});
   canvas.addEventListener('touchend', endDraw);
 
-  // Keyboard
   window.addEventListener('keydown', (e)=>{ if (e.key==='Shift') state.isShift=true; });
   window.addEventListener('keyup', (e)=>{ if (e.key==='Shift') state.isShift=false; });
 
-  // Update paper overlay position and size (since main does not scroll, rect is stable)
+  // Update paper overlay
   function updatePaperOverlay(){
     const rect = canvas.getBoundingClientRect();
-    // set overlay to match canvas inner area (we used inset:8px)
     paperLayer.style.left = rect.left + 'px';
     paperLayer.style.top = rect.top + 'px';
     paperLayer.style.width = rect.width + 'px';
     paperLayer.style.height = rect.height + 'px';
-    // keep absolute inset style
     paperLayer.style.position = 'absolute';
     paperLayer.style.inset = '8px';
   }
 
-  // When window resizes, adjust canvas CSS size to fit and update overlay.
   window.addEventListener('resize', ()=>{
     const mainArea = document.getElementById('canvasArea');
     const maxWidth = Math.max(300, mainArea.clientWidth - 40);
@@ -812,21 +1097,21 @@
     updatePaperOverlay();
   });
 
-  // Create cursor on load
-  createCursor();
+  // Initialize tone matrix selection default
+  selectBaseColor(state.baseColor);
+
+  // Create cursor and update
+  function createCursorOnce(){ if (!cursorEl) createCursor(); }
+  createCursorOnce();
   updateCursor();
   updatePaperOverlay();
 
-  // Make sure sidebar scroll does not move the canvas or cursor.
-  // The body overflow:hidden prevents page scroll. Sidebar has its own scroll.
-  // When user scrolls sidebar, cursor should still match pointer because we use client coordinates mapping.
-
-  // Hide cursor when pointer leaves window
+  // Hide cursor when leaving
   window.addEventListener('mouseout', (e)=>{ if (e.relatedTarget == null) { if (cursorEl) cursorEl.style.display='none'; } });
   window.addEventListener('mouseover', ()=>{ if (cursorEl) cursorEl.style.display='block'; });
 
   // Small console help
-  console.log("Left bar scrolls. Canvas stays fixed. If brush seems off, do not scroll the canvas area. Brush follows the pointer using client coordinates.");
+  console.log("More colors and new brushes ready. Use tone matrix to make color lighter or darker. Glass pen, crayon, hard pencil are added.");
 </script>
 </body>
 </html>
