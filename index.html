@@ -71,7 +71,7 @@
   .note-small{ font-size:12px; color:var(--sub); margin-left:6px; }
 
   /* Palette layout for two tiers */
-  .palette-grid{ display:grid; grid-template-columns: repeat(6, 1fr); gap:8px; width:100%; }
+  .palette-grid{ display:grid; grid-template-columns: repeat(6, 1fr); gap:8px; width:100%; margin-bottom:8px; }
   .palette-swatch{ height:40px; border-radius:8px; cursor:pointer; border:2px solid transparent; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; }
   .palette-swatch.selected{ outline: 3px solid rgba(37,99,235,0.12); border-color:var(--accent); }
 
@@ -170,11 +170,8 @@
       <div class="row" style="width:100%;">
         <label>Palette</label>
         <div style="flex:1">
-          <div class="palette-grid" id="paletteGrid">
-            <!-- Six top: red, orange, yellow, light green, green, light blue -->
-            <!-- Six bottom: blue, purple, pink, brown, black, white -->
-          </div>
-          <div class="small-note" style="margin-top:6px;">Click a color to choose it.</div>
+          <div class="palette-grid" id="paletteGrid"></div>
+          <div class="small-note" style="margin-top:6px;">Top: red, orange, yellow, light green, green, light blue. Bottom: blue, purple, pink, brown, black, white.</div>
         </div>
       </div>
 
@@ -288,7 +285,9 @@
 </div>
 
 <script>
-  // Full single-file app.
+  // Fix for "Clear Paper": always fill with paper color, not current brush color.
+  // All code in single HTML file.
+
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   const wrap = document.getElementById('canvasWrap');
@@ -351,6 +350,7 @@
   }
   function undo(){ if (!state.history.length) return; const img = state.history.pop(); ctx.putImageData(img,0,0); }
 
+  // applyPaperColor: draw the paper color under current pixels
   function applyPaperColor(){
     ctx.save();
     ctx.globalCompositeOperation = 'destination-over';
@@ -396,35 +396,29 @@
     }
   }
 
-  // Build palette (12 colors: two tiers)
+  // Build palette (12 colors)
   const paletteGrid = document.getElementById('paletteGrid');
-  const paletteColorsTop = ['#ef4444','#fb923c','#f59e0b','#bbf7d0','#10b981','#7dd3fc']; // red, orange, yellow, light green, green, light blue
-  const paletteColorsBottom = ['#2563eb','#7c3aed','#fb7185','#8b5a2b','#000000','#ffffff']; // blue,purple,pink,brown,black,white
+  const paletteColorsTop = ['#ef4444','#fb923c','#f59e0b','#bbf7d0','#10b981','#7dd3fc'];
+  const paletteColorsBottom = ['#2563eb','#7c3aed','#fb7185','#8b5a2b','#000000','#ffffff'];
 
   function buildPalette(){
     paletteGrid.innerHTML = '';
-    // top row
     paletteColorsTop.forEach((c, idx)=>{
       const el = document.createElement('div');
       el.className = 'palette-swatch';
       el.style.background = c;
       el.dataset.color = c;
       el.title = ['Red','Orange','Yellow','Light green','Green','Light blue'][idx];
-      el.addEventListener('click', ()=> {
-        selectBaseColor(c);
-      });
+      el.addEventListener('click', ()=> { selectBaseColor(c); });
       paletteGrid.appendChild(el);
     });
-    // bottom row (we put them after so grid flows next row)
     paletteColorsBottom.forEach((c, idx)=>{
       const el = document.createElement('div');
       el.className = 'palette-swatch';
       el.style.background = c;
       el.dataset.color = c;
       el.title = ['Blue','Purple','Pink','Brown','Black','White'][idx];
-      el.addEventListener('click', ()=> {
-        selectBaseColor(c);
-      });
+      el.addEventListener('click', ()=> { selectBaseColor(c); });
       paletteGrid.appendChild(el);
     });
   }
@@ -508,12 +502,11 @@
   });
   updateMixPreview();
 
-  // Select base color from palette or tone
+  // Select base color
   function selectBaseColor(hex){
     state.baseColor = hex;
     state.color = hex;
     document.getElementById('colorPick').value = hex;
-    // highlight palette selection
     paletteGrid.querySelectorAll('.palette-swatch').forEach(el=> el.classList.toggle('selected', el.dataset.color === hex));
     updateToneMatrix();
     updateCursor();
@@ -543,11 +536,21 @@
     });
   });
 
+  // Clear Paper now always fills with paper color
   document.getElementById('btnClear').addEventListener('click', ()=>{
     pushHistory();
+    // Clear canvas pixels
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    applyPaperColor();
+    // Fill with paper color explicitly (use paperColor state)
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = state.paperColor; // IMPORTANT: use paperColor, not brush color
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.restore();
+    // Reapply paper overlay if needed
+    updatePaperOverlay();
   });
+
   document.getElementById('btnUndo').addEventListener('click', undo);
   document.getElementById('btnSave').addEventListener('click', ()=>{
     const tmp = document.createElement('canvas');
@@ -615,7 +618,9 @@
       paperColors.querySelectorAll('.chip').forEach(x=>x.classList.remove('active'));
       ch.classList.add('active');
       state.paperColor = ch.dataset.paper;
+      // When paper color changes, fill canvas background under pixels:
       applyPaperColor();
+      // Also update cursor if eraser uses paper color
       updateCursor();
     });
   });
@@ -653,7 +658,7 @@
     setCanvasSizePixels(w,h);
   });
 
-  // Drawing logic (smooth strokes, many brush types)
+  // Drawing logic and helpers (similar to previous behavior)
   function setStrokeStyle(){
     ctx.globalAlpha = state.opacity;
     ctx.lineWidth = state.size;
@@ -712,7 +717,7 @@
     cursorEl.style.top = clientY + 'px';
   }
 
-  // smoothing and drawing helpers (reused from previous)
+  // Smooth drawing helpers (kept simple)
   function samplePoints(points, step){
     const samples = [];
     if (points.length === 0) return samples;
@@ -750,7 +755,6 @@
     const last = points[points.length - 1];
     ctx.lineTo(last.x, last.y);
 
-    // special brush behaviors
     if (state.brushTip === 'square') {
       ctx.lineCap = 'butt';
       ctx.stroke();
@@ -1111,7 +1115,6 @@
     return "#" + [r,g,b].map(v=> ("0"+Math.max(0,Math.min(255,Math.round(v))).toString(16)).slice(-2)).join('');
   }
   function rgbStringToHex(s){
-    // s like 'rgb(r,g,b)' or 'rgba(...)'
     const nums = s.replace(/rgba?\(|\)|\s/g,'').split(',').map(Number);
     return rgbToHex(nums[0], nums[1], nums[2]);
   }
@@ -1129,7 +1132,7 @@
   window.addEventListener('keydown', (e)=>{ if (e.key==='Shift') state.isShift=true; });
   window.addEventListener('keyup', (e)=>{ if (e.key==='Shift') state.isShift=false; });
 
-  // Update paper overlay on resize
+  // Update paper overlay
   function updatePaperOverlay(){
     const rect = canvas.getBoundingClientRect();
     paperLayer.style.left = rect.left + 'px';
@@ -1156,12 +1159,12 @@
   updateCursor();
   updatePaperOverlay();
 
-  // Hide cursor when leaving window
+  // Hide cursor when leaving
   window.addEventListener('mouseout', (e)=>{ if (e.relatedTarget == null) { if (cursorEl) cursorEl.style.display='none'; } });
   window.addEventListener('mouseover', ()=>{ if (cursorEl) cursorEl.style.display='block'; });
 
   // Small console help
-  console.log("Palette, Tone, and Toning ready. Use them to pick and mix colors.");
+  console.log("Clear Paper now fills with paper color always.");
 </script>
 </body>
 </html>
